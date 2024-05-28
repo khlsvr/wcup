@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="a/runno.js"></script>
+    <script src="a/wasi.js"></script>
+    <script src="a/snippet.js"></script>
+    <link rel="stylesheet" href="a/snippet.css" />
+
+    <script>
+        // Function to get URL parameters
+        function getUrlParams() {
+            const params = {};
+            const queryString = window.location.search.slice(1);
+            const queryArray = queryString.split('&');
+
+            queryArray.forEach(param => {
+                const [key, value] = param.split('=');
+                params[key] = decodeURIComponent(value.replace(/\+/g, ' ')); // Replace + with space
+            });
+
+            return params;
+        }
+
+        // Basic sanitization and validation for SQL queries
+        function sanitizeSql(query) {
+            // Disallow certain SQL commands that could be harmful
+            const disallowedCommands = /(\bDROP\b|\bDELETE\b|\bUPDATE\b|\bINSERT\b)/i;
+            if (disallowedCommands.test(query)) {
+                return false;
+            }
+            return true;
+        }
+
+        // Function to log queries
+        function logQuery(query) {
+            // Implement your logging mechanism here
+            // For example, send the query to a server endpoint or log it to the console
+            console.log("Executed query:", query);
+        }
+
+        // Function to update the SQL query in the <pre> tag
+        function updateSqlQuery() {
+            const params = getUrlParams();
+            const preElement = document.querySelector('pre');
+
+            if (params.q && sanitizeSql(params.q)) {
+                preElement.textContent = params.q;
+            } else {
+                preElement.textContent = 'select * from events limit 3;';
+            }
+        }
+
+        // Function to update the URL with the new query
+        function updateUrlWithQuery(query) {
+            if (sanitizeSql(query)) {
+                const url = new URL(window.location);
+                url.searchParams.set('q', query);
+                window.history.pushState({}, '', url);
+            }
+        }
+
+        // Function to handle the run button click event
+        function handleRunButtonClick() {
+            const query = document.querySelector('pre').textContent;
+            if (sanitizeSql(query)) {
+                logQuery(query);
+                updateUrlWithQuery(query);
+            } else {
+                alert("Invalid or unsafe SQL query detected.");
+            }
+        }
+
+        // Function to add event listener to the run button in the shadow DOM
+        function addRunButtonListener() {
+            const codapiSnippet = document.querySelector('codapi-snippet');
+            
+            if (codapiSnippet) {
+                const runButton = codapiSnippet.querySelector('button');
+                
+                if (runButton) {
+                    runButton.addEventListener('click', handleRunButtonClick);
+                } else {
+                    setTimeout(addRunButtonListener, 500);
+                }
+            } else {
+                setTimeout(addRunButtonListener, 500);
+            }
+        }
+
+        // Run the function to update the SQL query and add event listener when the page loads
+        window.onload = function() {
+            updateSqlQuery();
+            addRunButtonListener();
+        };
+    </script>
+</head>
+<body>
+    <pre>
+        select * from events limit 3;
+    </pre>
+
+    <codapi-snippet engine="wasi" sandbox="sqlite" editor="basic" template="wcup.sql"></codapi-snippet>
+</body>
+</html>
+
