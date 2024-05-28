@@ -49,7 +49,7 @@
             if (params.q && sanitizeSql(params.q)) {
                 preElement.textContent = params.q;
             } else {
-                preElement.textContent = 'select * from events limit 3;';
+                preElement.textContent = 'select information from cups where cup = 0;';
             }
         }
 
@@ -99,7 +99,7 @@
 </head>
 <body>
     <pre>
-        select * from events limit 3;
+        select information from cups where cup = 0;
     </pre>
 
     <codapi-snippet engine="wasi" sandbox="sqlite" editor="basic" template="wcup.sql"></codapi-snippet>
