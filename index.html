@@ -41,13 +41,32 @@
             console.log("Executed query:", query);
         }
 
+        // Function to trim whitespace from the SQL query
+        function trimWhitespace(query) {
+            return query.trim();
+        }
+
+        // Function to encode query using URL-safe Base64
+        function encodeQuery(query) {
+            return btoa(query).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
+
+        // Function to decode URL-safe Base64 encoded query
+        function decodeQuery(encodedQuery) {
+            encodedQuery = encodedQuery.replace(/-/g, '+').replace(/_/g, '/');
+            while (encodedQuery.length % 4) {
+                encodedQuery += '=';
+            }
+            return atob(encodedQuery);
+        }
+
         // Function to update the SQL query in the <pre> tag
         function updateSqlQuery() {
             const params = getUrlParams();
             const preElement = document.querySelector('pre');
 
-            if (params.q && sanitizeSql(params.q)) {
-                preElement.textContent = params.q;
+            if (params.q && sanitizeSql(decodeQuery(params.q))) {
+                preElement.textContent = trimWhitespace(decodeQuery(params.q));
             } else {
                 preElement.textContent = 'select information from cups where cup = 0;';
             }
@@ -55,16 +74,23 @@
 
         // Function to update the URL with the new query
         function updateUrlWithQuery(query) {
+            query = trimWhitespace(query);
             if (sanitizeSql(query)) {
-                const url = new URL(window.location);
-                url.searchParams.set('q', query);
-                window.history.pushState({}, '', url);
+                const encodedQuery = encodeQuery(query);
+                if (encodedQuery.length <= 2000) { // Check if the encoded query is within a reasonable length
+                    const url = new URL(window.location);
+                    url.searchParams.set('q', encodedQuery);
+                    window.history.pushState({}, '', url);
+                } else {
+                    alert("The query is too long to be encoded in the URL.");
+                }
             }
         }
 
         // Function to handle the run button click event
         function handleRunButtonClick() {
-            const query = document.querySelector('pre').textContent;
+            let query = document.querySelector('pre').textContent;
+            query = trimWhitespace(query);
             if (sanitizeSql(query)) {
                 logQuery(query);
                 updateUrlWithQuery(query);
