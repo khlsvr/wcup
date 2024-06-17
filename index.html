@@ -1,134 +1,263 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <script src="a/runno.js"></script>
-    <script src="a/wasi.js"></script>
-    <script src="a/snippet.js"></script>
-    <link rel="stylesheet" href="a/snippet.css" />
+  <script src="a/runno.js"></script>
+  <script src="a/wasi.js"></script>
+  <script src="a/snippet.js"></script>
+  <link rel="stylesheet" href="a/snippet.css" />
 
-    <script>
-        // Function to get URL parameters
-        function getUrlParams() {
-            const params = {};
-            const queryString = window.location.search.slice(1);
-            const queryArray = queryString.split('&');
+  <script>
 
-            queryArray.forEach(param => {
-                const [key, value] = param.split('=');
-                params[key] = decodeURIComponent(value.replace(/\+/g, ' ')); // Replace + with space
-            });
+    // Function to display message for a specific duration
+        function displayTemporaryMessage(message, duration) {
+            var messageContainer = document.getElementById('messageContainer');
+            messageContainer.innerHTML = message;
 
-            return params;
+            // Clear the message after 'duration' milliseconds
+            setTimeout(function() {
+                messageContainer.innerHTML = '';
+            }, duration);
         }
 
-        // Basic sanitization and validation for SQL queries
-        function sanitizeSql(query) {
-            // Disallow certain SQL commands that could be harmful
-            const disallowedCommands = /(\bDROP\b|\bDELETE\b|\bUPDATE\b|\bINSERT\b)/i;
-            if (disallowedCommands.test(query)) {
-                return false;
-            }
-            return true;
+    // Function to get URL parameters
+    function getUrlParams() {
+      const params = {};
+      const queryString = window.location.search.slice(1);
+      const queryArray = queryString.split('&');
+
+      queryArray.forEach(param => {
+        const [key, value] = param.split('=');
+        if (key && value) {
+          params[key] = decodeURIComponent(value.replace(/\+/g, ' ')); // Replace + with space
         }
+      });
 
-        // Function to log queries
-        function logQuery(query) {
-            // Implement your logging mechanism here
-            // For example, send the query to a server endpoint or log it to the console
-            console.log("Executed query:", query);
+      return params;
+    }
+
+    // Basic sanitization and validation for SQL queries
+    function sanitizeSql(query) {
+      // Disallow certain SQL commands that could be harmful
+      const disallowedCommands = /(\bDROP\b|\bDELETE\b|\bUPDATE\b|\bINSERT\b)/i;
+      if (disallowedCommands.test(query)) {
+        return false;
+      }
+      return true;
+    }
+
+    // Function to log queries
+    function logQuery(query) {
+      console.log("Executed query:", query);
+    }
+
+    // Function to trim whitespace from the SQL query
+    function trimWhitespace(query) {
+      return query.trim();
+    }
+
+    // Function to encode query using URL-safe Base64
+    function encodeQuery(query) {
+      return btoa(query).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    // Function to decode URL-safe Base64 encoded query
+    function decodeQuery(encodedQuery) {
+      encodedQuery = encodedQuery.replace(/-/g, '+').replace(/_/g, '/');
+      while (encodedQuery.length % 4) {
+        encodedQuery += '=';
+      }
+      return atob(encodedQuery);
+    }
+
+    // Function to update the SQL query in the <pre> tag
+    function updateSqlQuery() {
+      const params = getUrlParams();
+      const preElement = document.querySelector('pre');
+
+      if (params.q && sanitizeSql(decodeQuery(params.q))) {
+        preElement.textContent = trimWhitespace(decodeQuery(params.q));
+      } else {
+        preElement.textContent = 'select information from cups where cup = 0;';
+      }
+    }
+
+    // Function to update the URL with the new query
+    function updateUrlWithQuery(query) {
+      query = trimWhitespace(query);
+      if (sanitizeSql(query)) {
+        const encodedQuery = encodeQuery(query);
+        if (encodedQuery.length <= 2000) { // Check if the encoded query is within a reasonable length
+          const url = new URL(window.location);
+          url.searchParams.set('q', encodedQuery);
+          window.history.pushState({}, '', url);
+          console.log("URL updated with query:", encodedQuery);
+        } else {
+          //alert("The query is too long to be encoded in the URL.");
+          displayTemporaryMessage("The query is too long to be encoded in the URL.", 3000);
+          //document.getElementById('messageContainer').innerHTML = "The query is too long to be encoded in the URL.";
+
         }
+      }
+    }
 
-        // Function to trim whitespace from the SQL query
-        function trimWhitespace(query) {
-            return query.trim();
-        }
+    // Function to handle the run button click event
+    function handleRunButtonClick() {
+      console.log("Run button clicked.");
+      let query = document.querySelector('pre').textContent;
+      query = trimWhitespace(query);
+      if (sanitizeSql(query)) {
+        logQuery(query);
+        updateUrlWithQuery(query);
+      } else {
+        alert("Invalid or unsafe SQL query detected.");
+      }
+    }
 
-        // Function to encode query using URL-safe Base64
-        function encodeQuery(query) {
-            return btoa(query).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        }
+    // Function to set the content of the <pre> tag and automatically run the query
+    function setPreContent(content) {
+      const preElement = document.querySelector('pre');
+      preElement.textContent = content;
+      console.log("Set content of <pre>:", content);
+      handleRunButtonClick();
+      runQuery();
+    }
 
-        // Function to decode URL-safe Base64 encoded query
-        function decodeQuery(encodedQuery) {
-            encodedQuery = encodedQuery.replace(/-/g, '+').replace(/_/g, '/');
-            while (encodedQuery.length % 4) {
-                encodedQuery += '=';
-            }
-            return atob(encodedQuery);
-        }
+    // Function to programmatically click the run button
+    function runQuery() {
+      const runButton = document.getElementsByTagName('button')[0];
+      if (runButton) {
+        console.log("Programmatically clicking the run button.");
+        runButton.click();
+      } else {
+        console.log("Run button not found in runQuery.");
+      }
+    }
 
-        // Function to update the SQL query in the <pre> tag
-        function updateSqlQuery() {
-            const params = getUrlParams();
-            const preElement = document.querySelector('pre');
+    // Function to wait for codapi-snippet element to be available
+    function waitForCodapiSnippet(callback) {
+      const codapiSnippet = document.querySelector('codapi-snippet');
+      if (codapiSnippet && codapiSnippet.shadowRoot) {
+        console.log("codapi-snippet and shadowRoot found, executing callback.");
+        callback();
+        return;
+      }
 
-            if (params.q && sanitizeSql(decodeQuery(params.q))) {
-                preElement.textContent = trimWhitespace(decodeQuery(params.q));
-            } else {
-                preElement.textContent = 'select information from cups where cup = 0;';
-            }
-        }
-
-        // Function to update the URL with the new query
-        function updateUrlWithQuery(query) {
-            query = trimWhitespace(query);
-            if (sanitizeSql(query)) {
-                const encodedQuery = encodeQuery(query);
-                if (encodedQuery.length <= 2000) { // Check if the encoded query is within a reasonable length
-                    const url = new URL(window.location);
-                    url.searchParams.set('q', encodedQuery);
-                    window.history.pushState({}, '', url);
-                } else {
-                    alert("The query is too long to be encoded in the URL.");
-                }
-            }
-        }
-
-        // Function to handle the run button click event
-        function handleRunButtonClick() {
-            let query = document.querySelector('pre').textContent;
-            query = trimWhitespace(query);
-            if (sanitizeSql(query)) {
-                logQuery(query);
-                updateUrlWithQuery(query);
-            } else {
-                alert("Invalid or unsafe SQL query detected.");
-            }
-        }
-
-        // Function to add event listener to the run button in the shadow DOM
-        function addRunButtonListener() {
+      const observer = new MutationObserver((mutationsList, observer) => {
+        for (const mutation of mutationsList) {
+          if (mutation.type === 'childList') {
             const codapiSnippet = document.querySelector('codapi-snippet');
-            
-            if (codapiSnippet) {
-                const runButton = codapiSnippet.querySelector('button');
-                
-                if (runButton) {
-                    runButton.addEventListener('click', handleRunButtonClick);
-                } else {
-                    setTimeout(addRunButtonListener, 500);
-                }
-            } else {
-                setTimeout(addRunButtonListener, 500);
+            if (codapiSnippet && codapiSnippet.shadowRoot) {
+              console.log("codapi-snippet and shadowRoot found by observer, executing callback.");
+              observer.disconnect();
+              callback();
+              break;
             }
+          }
         }
+      });
 
-        // Run the function to update the SQL query and add event listener when the page loads
-        window.onload = function() {
-            updateSqlQuery();
-            addRunButtonListener();
-        };
-    </script>
+      // Observe the document body for added nodes
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    // Function to add event listener to the run button in the shadow DOM
+    function addRunButtonListener() {
+      const codapiSnippet = document.querySelector('codapi-snippet');
+      
+      if (codapiSnippet) {
+        const runButton = codapiSnippet.querySelector('button');
+        console.log("Attempting to add listener to run button.");
+        
+        if (runButton) {
+          runButton.addEventListener('click', handleRunButtonClick);
+          console.log("Listener added to run button.");
+        } else {
+          console.log("Run button not found, retrying in 500ms.");
+          setTimeout(addRunButtonListener, 500);
+        }
+      } else {
+        console.log("codapi-snippet or its shadowRoot not found, retrying in 500ms.");
+        setTimeout(addRunButtonListener, 500);
+      }
+    }
+
+    // Run the function to update the SQL query and add event listener when the page loads
+    window.onload = function() {
+      console.log("Window loaded.");
+      updateSqlQuery();
+      addRunButtonListener();
+    };
+  </script>
 </head>
 <body>
-    <pre>
-        select information from cups where cup = 0;
-    </pre>
+  <div>
+    <a href="#" onclick="setPreContent(''); return false;">Clear</a> | 
+    <a href="#" onclick="setPreContent(`SELECT information from cups where cup = 0;`); return false;">About</a> | 
 
-    <codapi-snippet engine="wasi" sandbox="sqlite" editor="basic" template="wcup.sql"></codapi-snippet>
+<a href="#" onclick="setPreContent(`SELECT cup, events, strftime('%Y-%m-%d %H:%M:%S', startDate, 'unixepoch', CASE WHEN strftime('%m', startDate, 'unixepoch') IN ('04', '05', '06', '07', '08', '09', '10') THEN '+3 hours' ELSE '+2 hours' END) AS start_date_eet, strftime('%Y-%m-%d %H:%M:%S', endDate, 'unixepoch', CASE WHEN strftime('%m', endDate, 'unixepoch') IN ('04', '05', '06', '07', '08', '09', '10') THEN '+3 hours' ELSE '+2 hours' END) AS end_date_eet, organizers, '<a href=&quot;#&quot; onclick=&quot;setPreContent(\`SELECT * FROM records WHERE cup = ' || cup || ' AND event = 999;\`); return false;&quot;>standings</a>' AS renaults, information FROM cups WHERE cup > 0;`); return false;">Cups</a> | 
+
+<a href="#" onclick="setPreContent(`SELECT id, cup, event, '&lt;a href=&quot;#&quot; onclick=&quot;setPreContent(\`SELECT * FROM records WHERE cup = ' || cup || ' AND event = ' || event || ';\`); return false;&quot;&gt;' || name || '&lt;/a&gt;' AS name, designers, link, strftime('%Y-%m-%d %H:%M:%S', startDate, 'unixepoch', CASE WHEN strftime('%m', startDate, 'unixepoch') IN ('04', '05', '06', '07', '08', '09', '10') THEN '+3 hours' ELSE '+2 hours' END) AS start_date_eet, strftime('%Y-%m-%d %H:%M:%S', endDate, 'unixepoch', CASE WHEN strftime('%m', endDate, 'unixepoch') IN ('04', '05', '06', '07', '08', '09', '10') THEN '+3 hours' ELSE '+2 hours' END) AS end_date_eet, notes, apples, killers, gravity, sources FROM events;`); return false;">Events</a> | 
+
+    <a href="#" onclick="setPreContent(`SELECT ROW_NUMBER() OVER (ORDER BY COALESCE(gold_count, 0) DESC, COALESCE(silver_count, 0) DESC, COALESCE(bronze_count, 0) DESC, COALESCE(fourth_count, 0) DESC, COALESCE(fifth_count, 0) DESC, COALESCE(sixth_to_tenth_count, 0) DESC, cups_count ASC) AS &quot;#&quot;, u.standard_nick AS nick, COALESCE(gold_count, 0) AS gold, COALESCE(silver_count, 0) AS silver, COALESCE(bronze_count, 0) AS bronze, COALESCE(fourth_count, 0) AS fourth, COALESCE(fifth_count, 0) AS fifth, COALESCE(sixth_to_tenth_count, 0) AS &quot;6-10&quot;, COALESCE(cups_count, 0) AS cups FROM users u LEFT JOIN (SELECT user_id, SUM(CASE WHEN position = 1 THEN 1 ELSE 0 END) AS gold_count, SUM(CASE WHEN position = 2 THEN 1 ELSE 0 END) AS silver_count, SUM(CASE WHEN position = 3 THEN 1 ELSE 0 END) AS bronze_count, SUM(CASE WHEN position = 4 THEN 1 ELSE 0 END) AS fourth_count, SUM(CASE WHEN position = 5 THEN 1 ELSE 0 END) AS fifth_count, SUM(CASE WHEN position >= 6 AND position <= 10 THEN 1 ELSE 0 END) AS sixth_to_tenth_count, COUNT(DISTINCT cup) AS cups_count FROM records WHERE event = 999 GROUP BY user_id HAVING SUM(CASE WHEN position IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) THEN 1 ELSE 0 END) > 0) AS stats ON u.id = stats.user_id WHERE gold_count > 0 OR silver_count > 0 OR bronze_count > 0 OR fourth_count > 0 OR fifth_count > 0 OR sixth_to_tenth_count > 0 ORDER BY COALESCE(gold_count, 0) DESC, COALESCE(silver_count, 0) DESC, COALESCE(bronze_count, 0) DESC, COALESCE(fourth_count, 0) DESC, COALESCE(fifth_count, 0) DESC, COALESCE(sixth_to_tenth_count, 0) DESC, cups_count ASC;`); return false;">Cups Medal Table</a> | 
+    
+<a href="#" onclick="setPreContent(`SELECT ROW_NUMBER() OVER (ORDER BY COALESCE(gold_count, 0) DESC, COALESCE(silver_count, 0) DESC, COALESCE(bronze_count, 0) DESC, COALESCE(fourth_count, 0) DESC, COALESCE(fifth_count, 0) DESC, COALESCE(sixth_to_tenth_count, 0) DESC, stats.events_count ASC, stats.cups_count ASC) AS &quot;#&quot;, u.standard_nick AS nick, COALESCE(gold_count, 0) AS gold, COALESCE(silver_count, 0) AS silver, COALESCE(bronze_count, 0) AS bronze, COALESCE(fourth_count, 0) AS fourth, COALESCE(fifth_count, 0) AS fifth, COALESCE(sixth_to_tenth_count, 0) AS &quot;6-10&quot;, COALESCE(stats.events_count, 0) AS events, COALESCE(stats.cups_count, 0) AS cups FROM users u LEFT JOIN (SELECT user_id, SUM(CASE WHEN position = 1 THEN 1 ELSE 0 END) AS gold_count, SUM(CASE WHEN position = 2 THEN 1 ELSE 0 END) AS silver_count, SUM(CASE WHEN position = 3 THEN 1 ELSE 0 END) AS bronze_count, SUM(CASE WHEN position = 4 THEN 1 ELSE 0 END) AS fourth_count, SUM(CASE WHEN position = 5 THEN 1 ELSE 0 END) AS fifth_count, SUM(CASE WHEN position >= 6 AND position <= 10 THEN 1 ELSE 0 END) AS sixth_to_tenth_count, COUNT(*) AS events_count, COUNT(DISTINCT cup) AS cups_count FROM records WHERE event != 999 GROUP BY user_id HAVING SUM(CASE WHEN position IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10) THEN 1 ELSE 0 END) > 0) AS stats ON u.id = stats.user_id WHERE gold_count > 0 OR silver_count > 0 OR bronze_count > 0 OR fourth_count > 0 OR fifth_count > 0 OR sixth_to_tenth_count > 0 ORDER BY COALESCE(gold_count, 0) DESC, COALESCE(silver_count, 0) DESC, COALESCE(bronze_count, 0) DESC, COALESCE(fourth_count, 0) DESC, COALESCE(fifth_count, 0) DESC, COALESCE(sixth_to_tenth_count, 0) DESC, stats.events_count ASC, stats.cups_count ASC;`); return false;">Events Medal Table</a> | 
+    
+<a href="#" onclick="setPreContent(`SELECT (ROW_NUMBER() OVER (ORDER BY main.total_points DESC, main.event_participations ASC)) AS &quot;#&quot;, main.nick, main.total_points, main.cups, main.event_participations, ROUND(CASE WHEN main.event_participations > 0 THEN main.total_points / main.event_participations ELSE 0 END, 2) AS points_per_event FROM (SELECT u.standard_nick AS nick, SUM(CASE WHEN r.event = 999 THEN r.points ELSE 0 END) AS total_points, COUNT(DISTINCT r.cup) AS cups, COUNT(CASE WHEN r.event != 999 THEN 1 END) AS event_participations, RANK() OVER (ORDER BY SUM(CASE WHEN r.event = 999 THEN r.points ELSE 0 END) DESC) AS total_points_rank FROM users u LEFT JOIN records r ON u.id = r.user_id GROUP BY u.id, u.standard_nick) AS main ORDER BY main.total_points DESC, main.event_participations ASC;`); return false;">Total Points</a> | 
+
+    <a href="#" onclick="setPreContent(`SELECT ROW_NUMBER() OVER (ORDER BY main.points_per_event DESC, main.event_participations DESC) AS &quot;#&quot;, main.nick, main.total_points, main.cups, main.event_participations, ROUND(main.points_per_event, 2) AS points_per_event FROM (SELECT u.standard_nick AS nick, SUM(CASE WHEN r.event = 999 THEN r.points ELSE 0 END) AS total_points, COUNT(DISTINCT r.cup) AS cups, COUNT(CASE WHEN r.event != 999 THEN 1 END) AS event_participations, CASE WHEN COUNT(CASE WHEN r.event != 999 THEN 1 END) > 0 THEN SUM(CASE WHEN r.event = 999 THEN r.points ELSE 0 END) / COUNT(CASE WHEN r.event != 999 THEN 1 END) ELSE 0 END AS points_per_event FROM users u LEFT JOIN records r ON u.id = r.user_id GROUP BY u.id, u.standard_nick) AS main ORDER BY main.points_per_event DESC, main.event_participations DESC;`); return false;">Points Per Event</a> | 
+
+ 
+    <a href="#" onclick="setPreContent(`WITH ranked_records AS (SELECT ROW_NUMBER() OVER (PARTITION BY cup ORDER BY position) AS position_rank, nick, cup FROM records WHERE event = 999 AND position BETWEEN 1 AND 20) SELECT ROW_NUMBER() OVER () AS &quot;#&quot;, MAX(CASE WHEN cup = 1 THEN nick END) AS wc1, MAX(CASE WHEN cup = 2 THEN nick END) AS wc2, MAX(CASE WHEN cup = 3 THEN nick END) AS wc3, MAX(CASE WHEN cup = 4 THEN nick END) AS wc4, MAX(CASE WHEN cup = 5 THEN nick END) AS wc5, MAX(CASE WHEN cup = 6 THEN nick END) AS wc6, MAX(CASE WHEN cup = 7 THEN nick END) AS wc7, MAX(CASE WHEN cup = 8 THEN nick END) AS wc8, MAX(CASE WHEN cup = 9 THEN nick END) AS wc9 FROM ranked_records GROUP BY position_rank ORDER BY position_rank;
+`); return false;">TOP20s</a> | 
+
+<a href="#" onclick="setPreContent(`SELECT ROW_NUMBER() OVER (ORDER BY main.event_participations DESC) AS &quot;#&quot;, main.nick, main.event_participations, main.cups, main.total_points, ROUND(main.points_per_event, 2) AS points_per_event FROM (SELECT u.standard_nick AS nick, COUNT(CASE WHEN r.event != 999 THEN 1 END) AS event_participations, COUNT(DISTINCT r.cup) AS cups, SUM(CASE WHEN r.event = 999 THEN r.points ELSE 0 END) AS total_points, CASE WHEN COUNT(CASE WHEN r.event != 999 THEN 1 END) > 0 THEN SUM(CASE WHEN r.event = 999 THEN r.points ELSE 0 END) / COUNT(CASE WHEN r.event != 999 THEN 1 END) ELSE 0 END AS points_per_event FROM users u LEFT JOIN records r ON u.id = r.user_id GROUP BY u.id, u.standard_nick) AS main ORDER BY main.event_participations DESC;`); return false;">Participations</a> |
+
+
+  </div>
+
+  <div>
+    Users:
+    <span id="userLinks"></span>
+  </div>
+  <div id="messageContainer"></div>
+
+  <script>
+    // Function to generate user links dynamically
+    function generateUserLinks() {
+      const userLinksContainer = document.getElementById("userLinks");
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+      // Generate link for A-Z
+      const generateLink = (char) => {
+return `<a href="#" onclick="setPreContent(\`SELECT '&lt;a href=&quot;#&quot; onclick=&quot;setPreContent(&amp;quot;select * from records where user_id = ' || id || ' order by cup, event&amp;quot;); return false;&quot;&gt;' || standard_nick || '&lt;/a&gt;' AS user___participations___wc1_to_wc9_rankings, COALESCE(participation_count, 0) AS participation_count, CASE WHEN p1.position IS NOT NULL THEN p1.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 1 AND event = 999) ELSE '-' END AS wc1, CASE WHEN p2.position IS NOT NULL THEN p2.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 2 AND event = 999) ELSE '-' END AS wc2, CASE WHEN p3.position IS NOT NULL THEN p3.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 3 AND event = 999) ELSE '-' END AS wc3, CASE WHEN p4.position IS NOT NULL THEN p4.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 4 AND event = 999) ELSE '-' END AS wc4, CASE WHEN p5.position IS NOT NULL THEN p5.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 5 AND event = 999) ELSE '-' END AS wc5, CASE WHEN p6.position IS NOT NULL THEN p6.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 6 AND event = 999) ELSE '-' END AS wc6, CASE WHEN p7.position IS NOT NULL THEN p7.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 7 AND event = 999) ELSE '-' END AS wc7, CASE WHEN p8.position IS NOT NULL THEN p8.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 8 AND event = 999) ELSE '-' END AS wc8, CASE WHEN p9.position IS NOT NULL THEN p9.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 9 AND event = 999) ELSE '-' END AS wc9 FROM users u LEFT JOIN (SELECT user_id, COUNT(*) AS participation_count FROM records WHERE event != 999 GROUP BY user_id) r ON u.id = r.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 1 AND event = 999) p1 ON u.id = p1.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 2 AND event = 999) p2 ON u.id = p2.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 3 AND event = 999) p3 ON u.id = p3.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 4 AND event = 999) p4 ON u.id = p4.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 5 AND event = 999) p5 ON u.id = p5.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 6 AND event = 999) p6 ON u.id = p6.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 7 AND event = 999) p7 ON u.id = p7.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 8 AND event = 999) p8 ON u.id = p8.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 9 AND event = 999) p9 ON u.id = p9.user_id WHERE standard_nick LIKE '${char}%' ORDER BY standard_nick COLLATE NOCASE;\`); return false;">${char}</a> | `;
+};
+
+      // Generate links for A-Z
+      let links = alphabet.split("").map(char => generateLink(char));
+
+      // Generate link for special characters
+
+links.push(`<a href="#" onclick="setPreContent(\`SELECT '&lt;a href=&quot;#&quot; onclick=&quot;setPreContent(&amp;quot;select * from records where user_id = ' || id || ' order by cup, event&amp;quot;); return false;&quot;&gt;' || standard_nick || '&lt;/a&gt;' AS user___participations___wc1_to_wc9_rankings, COALESCE(participation_count, 0) AS participation_count, CASE WHEN p1.position IS NOT NULL THEN p1.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 1 AND event = 999) ELSE '-' END AS wc1, CASE WHEN p2.position IS NOT NULL THEN p2.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 2 AND event = 999) ELSE '-' END AS wc2, CASE WHEN p3.position IS NOT NULL THEN p3.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 3 AND event = 999) ELSE '-' END AS wc3, CASE WHEN p4.position IS NOT NULL THEN p4.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 4 AND event = 999) ELSE '-' END AS wc4, CASE WHEN p5.position IS NOT NULL THEN p5.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 5 AND event = 999) ELSE '-' END AS wc5, CASE WHEN p6.position IS NOT NULL THEN p6.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 6 AND event = 999) ELSE '-' END AS wc6, CASE WHEN p7.position IS NOT NULL THEN p7.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 7 AND event = 999) ELSE '-' END AS wc7, CASE WHEN p8.position IS NOT NULL THEN p8.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 8 AND event = 999) ELSE '-' END AS wc8, CASE WHEN p9.position IS NOT NULL THEN p9.position || '/' || (SELECT MAX(position) FROM records WHERE cup = 9 AND event = 999) ELSE '-' END AS wc9 FROM users u LEFT JOIN (SELECT user_id, COUNT(*) AS participation_count FROM records WHERE event != 999 GROUP BY user_id) r ON u.id = r.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 1 AND event = 999) p1 ON u.id = p1.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 2 AND event = 999) p2 ON u.id = p2.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 3 AND event = 999) p3 ON u.id = p3.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 4 AND event = 999) p4 ON u.id = p4.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 5 AND event = 999) p5 ON u.id = p5.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 6 AND event = 999) p6 ON u.id = p6.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 7 AND event = 999) p7 ON u.id = p7.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 8 AND event = 999) p8 ON u.id = p8.user_id LEFT JOIN (SELECT user_id, position FROM records WHERE cup = 9 AND event = 999) p9 ON u.id = p9.user_id WHERE standard_nick NOT GLOB '[A-Za-z]*' ORDER BY standard_nick COLLATE NOCASE;\`); return false;">Other</a>`); 
+
+
+      // Render links
+      userLinksContainer.innerHTML = links.join("");
+    }
+
+    // Run the function to generate user links
+    generateUserLinks();
+  </script>
+
+  <pre>
+    select information from cups where cup = 0;
+  </pre>
+
+  <codapi-snippet engine="wasi" sandbox="sqlite" output-mode="html" editor="basic" template="wcup.sql"></codapi-snippet>
+
 </body>
+
 </html>
 
